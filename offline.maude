@@ -1,0 +1,75 @@
+load ./node
+
+mod OFFLINE is
+  --- an offline does nothing but respond with negative votes and propegate leader requests and queries. 
+  pr NODE .
+
+  var C : Command .
+  var oids : OidSet .
+  var O1 O2 cli lea fol : Oid .
+  var fols : OidSet .
+  var led comled : Log .
+  var AS : AttributeSet .
+  var N1 N2 N3 term term-res : Nat .
+  var B : Bool .
+  var E : Entry .
+
+  --- propagate query 
+  rl [query-offline] :
+    (msg Query(C) from cli to fol)
+    < fol : OfflineNode | next-neighbor : lea, AS > =>
+    < fol : OfflineNode | next-neighbor : lea, AS > 
+    (msg Query(C) from cli to lea) .
+
+  --- vote no on setting log
+  rl [set-log-offline] :
+    (msg SetLog(term, led) from lea to fol)
+    < fol : OfflineNode | AS > =>
+    < fol : OfflineNode | AS > 
+    (msg SetLogResponse(term, false) from fol to lea) .
+
+  --- ignore setlogresponse
+  rl [set-log-response-offline] :
+    (msg SetLogResponse(term, B) from fol to lea)
+    < lea : OfflineNode | AS > =>
+    < lea : OfflineNode | AS > .
+
+  --- don't commit 
+  rl [commit-offline] :
+    (msg Commit(term, E) from lea to fol)
+    < fol : OfflineNode | AS > =>
+    < fol : OfflineNode | AS > .
+
+  ---become follower node 
+  rl [come-online] :
+    (msg Live from cli to fol)
+    < fol : OfflineNode | AS > =>
+    < fol : FollowerNode | AS >
+    (msg Live from fol to cli) .
+
+  --- forward leader request 
+  rl [leader-offline] : 
+    (msg BecomeLeader(term) from lea to O1)
+    < O1 : OfflineNode | next-neighbor : O2, AS > =>
+    < O1 : OfflineNode | next-neighbor : O2, AS > 
+    (msg BecomeLeader(term) from O1 to O2) .
+
+  --- vote no if asked 
+  rl [request-vote-offline] : 
+    (msg RequestVote(term, E) from lea to fol)
+    < fol : OfflineNode | AS > => 
+    < fol : OfflineNode | AS > 
+    (msg Vote(term, false) from fol to lea) .
+
+  --- eat residual votes  
+  rl [request-vote-offline] : 
+    (msg Vote(term, B) from lea to fol)
+    < fol : OfflineNode | AS > => 
+    < fol : OfflineNode | AS > .
+
+  --- delete setlogresponse messages
+  rl [follower-set-log-response] :
+    (msg SetLogResponse(term, B) from lea to fol)
+    < fol : OfflineNode | AS > =>
+    < fol : OfflineNode | AS > .
+endm

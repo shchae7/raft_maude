@@ -1,0 +1,53 @@
+load ./node
+
+mod LEADER is 
+  --- a leader node handles incoming queries and replication
+  pr NODE .
+
+  var C : Command .
+  var oids : OidSet .
+  var cli lea fol : Oid .
+  var fols : OidSet .
+  var led led' comled : Log .
+  var AS : AttributeSet .
+  var N1 N2 N3 term term-res : Nat .
+  var B : Bool .
+  var M : Msg .
+  var E : Entry .
+
+  --- when given a query, add to log and send to all other nodes 
+  crl [query-leader] : 
+    (msg Query(C) from cli to lea)
+    < lea : LeaderNode | currentTerm : term, log : led , neighbors : fols, waiting : false, number-yes : N1, number-response : N2, AS > =>
+    < lea : LeaderNode | currentTerm : term, log : led', neighbors : fols, waiting : true , number-yes : 1 , number-response : 0 , AS > 
+    (multicast SetLog(term, led') from lea to fols) 
+    if led' := led ; entry(index(head(led)) + 1, term, C) .
+
+  --- acknowledge that log was updated
+  rl [set-log-response-leader] : 
+    (msg SetLogResponse(term, B) from fol to lea)
+    < lea : LeaderNode | currentTerm : term, log : led, number-yes : N1, number-response : N2, AS > => 
+    < lea : LeaderNode | currentTerm : term, log : led, number-yes : N1 + to-nat(B), number-response : N2 + 1, AS > .
+
+  --- when everyone responds, commit if majority said yes, retry if not
+  crl [commit] :
+    < lea : LeaderNode | currentTerm : term, waiting : true , neighbors : oids, log : led, committed : comled, majority : N1, number-yes : N2, number-neighbors : N3, number-response : N3, AS > =>
+    < lea : LeaderNode | currentTerm : term, waiting : false, neighbors : oids, log : led, committed : led   , majority : N1, number-yes : N2, number-neighbors : N3, number-response : N3, AS >
+    (multicast Commit(term, head(led)) from lea to oids)
+    if N2 >= N1 .
+
+  --- retry the setlog message - note, this should never occur if a majority of nodes are online!
+  crl [retry] : 
+    < lea : LeaderNode | currentTerm : term, neighbors : oids, log : led, majority : N1, number-yes : N2, number-neighbors : N3, number-response : N3, AS > =>
+    < lea : LeaderNode | currentTerm : term, neighbors : oids, log : led, majority : N1, number-yes : 1 , number-neighbors : N3, number-response : 0 , AS >
+    (multicast SetLog(term, led) from lea to oids)
+    if N2 < N1 .
+
+  --- tell the next node to start leader process and become offline 
+  rl [die] :
+    (msg Die from cli to lea)
+    < lea : LeaderNode  | currentTerm : term, next-neighbor : fol, AS > =>
+    < lea : OfflineNode | currentTerm : term, next-neighbor : fol, AS > 
+    (msg Die from lea to cli) 
+    (msg BecomeLeader(term + 1) from lea to fol) .
+endm

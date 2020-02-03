@@ -1,0 +1,80 @@
+load ./message
+load ./log
+
+mod NODE is
+  pr MESSAGE .
+  pr MULTICAST .
+  pr STRING .
+  pr NAT .
+  pr LOG .
+  pr BOOL .
+
+  sort NodeCid .
+  subsort NodeCid < Cid .
+  op node : Nat -> Oid [ctor] .
+  op FollowerNode : -> NodeCid .
+  op LeaderNode : -> NodeCid .
+  op OfflineNode : -> NodeCid .
+  op CandidateNode : -> NodeCid .
+
+  --- AttributeSet
+  --- term of node. starts at 0. 1 term corresponds to 1 election 
+  op currentTerm :_ : Nat -> Attribute [ctor gather(&)] .
+
+  --- current Log 
+  op log :_ : Log -> Attribute [ctor gather(&)] .
+
+  --- committed commands (relfected on state machine)
+  op committed :_ : Log -> Attribute [ctor gather(&)] .
+
+  --- other nodes 
+  op neighbors :_ : OidSet -> Attribute [ctor gather(&)] .
+
+  --- whether leader is waiting for nodes setlog
+  op waiting :_ : Bool -> Attribute [ctor gather(&)] .
+
+  --- next neighbor in ring 
+  op next-neighbor :_ : Oid -> Attribute [ctor gather(&)] .
+
+  --- value for majority of nodes 
+  op majority :_ : Nat -> Attribute [ctor gather(&)] .
+
+  --- number of neighbors (static)
+  op number-neighbors :_ : Nat -> Attribute [ctor gather(&)] .
+
+  --- number of yes response (election or commit)
+  op number-yes :_ : Nat -> Attribute [ctor gather(&)] .
+
+  --- number of no responses
+  op number-response :_ : Nat -> Attribute [ctor gather(&)] .
+
+  op to-nat : Bool -> Nat .
+  eq to-nat(false) = 0 .
+  eq to-nat(true) = 1 .
+
+  --- cleanup for each object
+  var O : Oid .
+  var C : NodeCid .
+  var N : Nat .
+  var M : Msg .
+  var MC : MsgCont .
+  var AS : AttributeSet .
+  var led : Log .
+  var E : Entry .
+  var B : Bool .
+
+  --- get the term of a message content, used for cleanup
+  op get-term : MsgCont -> Nat .
+  eq get-term(SetLog(N, led)) = N .
+  eq get-term(SetLogResponse(N, B)) = N .
+  eq get-term(Commit(N, E)) = N .
+  eq get-term(RequestVote(N, E)) = N .
+  eq get-term(Vote(N, B)) = N .
+
+  --- delete a message if the term of its contents is less than the term of the object
+  ceq 
+    (M)
+    < O : C | currentTerm : N, AS > =
+    < O : C | currentTerm : N, AS >
+    if N > get-term(cont(M)) /\ dest(M) == O .
+endm

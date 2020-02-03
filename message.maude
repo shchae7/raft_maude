@@ -1,0 +1,66 @@
+load ./log
+
+mod MESSAGE is 
+  ex CONFIGURATION .
+  pr LOG .
+  pr NAT .
+  pr BOOL .
+
+  sort MsgCont .
+  --- for leader
+  op Query : Command -> MsgCont [ctor] .
+
+  --- the nat of the next three commands is the current term
+  --- send the Log to followers 
+  op SetLog : Nat Log -> MsgCont [ctor] .
+
+  --- vote yes if log updated, no otherwise (if node is down or setlog came from dead leader)
+  op SetLogResponse : Nat Bool -> MsgCont [ctor] .
+
+  --- tell nodes to commit up to the designated entry (if entry doesn't exist, do nothing)
+  op Commit : Nat Entry -> MsgCont [ctor] .
+
+  --- tell a node to die 
+  op Die : -> MsgCont [ctor] .
+
+  --- tell a node to come online
+  op Live : -> MsgCont [ctor] .
+
+  --- tell a node to try to become leader for specified term 
+  op BecomeLeader : Nat -> MsgCont [ctor] .
+
+  --- request a vote from a node, giving the term and Log of the candidate
+  op RequestVote : Nat Entry -> MsgCont [ctor] .
+
+  --- if the logs have latest entries with different terms, the higher term is more up-to-date.
+  --- otherwise, the higher index is more up-to-date
+  --- Vote yes (true) if candidate is at least as up-to-date and not offline, no otherwise
+  op Vote : Nat Bool -> MsgCont [ctor] .
+
+  op msg_from_to_ : MsgCont Oid Oid -> Msg [ctor] .
+
+  op dest : Msg -> Oid .
+  op cont : Msg -> MsgCont .
+  var C : MsgCont .
+  vars O O2 : Oid .
+  eq dest(msg C from O to O2) = O2 .
+  eq cont(msg C from O to O2) = C .
+endm
+
+mod MULTICAST is
+  pr MESSAGE .
+
+  --- send message to multiple nodes at once 
+  sort OidSet .
+  subsort Oid < OidSet .
+
+  op none : -> OidSet [ctor] .
+  op multicast_from_to_ : MsgCont Oid OidSet -> Msg [ctor] .
+  op _,_ : OidSet OidSet -> OidSet [ctor assoc comm id: none] .
+
+  var M : MsgCont .
+  vars O O2 : Oid .
+  var OS : OidSet .
+  eq multicast M from O to none = none .
+  eq multicast M from O to (O2 , OS) = (msg M from O to O2) multicast M from O to OS .
+endm

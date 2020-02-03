@@ -1,0 +1,134 @@
+load ./follower
+load ./leader
+load ./offline
+load ./candidate
+
+mod NODE-INIT is
+  pr FOLLOWER .
+  pr LEADER .
+  pr OFFLINE .
+  pr CANDIDATE .
+
+  --- first parameter is index, second is number of nodes 
+  op init-node : Nat Nat -> Configuration .
+  op make-neighbors : Nat Nat -> OidSet .
+  op add-one-modulo : Nat Nat -> Nat .
+  op get-majority : Nat -> Nat .
+  op get-minority : Nat -> Nat .
+  vars N N1 N2 : Nat .
+
+  --- helper methods to define node properties 
+  eq make-neighbors(0, 0) = none .
+  eq make-neighbors(s N, 0) = node(0) .
+  eq make-neighbors(s N, s N) = make-neighbors(s N, N) .
+  eq make-neighbors(N2, s N) = node(s N), make-neighbors(N2, N) [owise] .
+
+  eq add-one-modulo(N1, s N1) = 0 .
+  eq add-one-modulo(N1, N2) = s N1 [owise] .
+
+  eq get-majority(s s N1) = 1 + get-majority(N1) .
+  eq get-majority(N1) = 1 [owise] .
+  eq get-minority(s s s N1) = 1 + get-minority(s N1) .
+  eq get-minority(N1) = 0 [owise] .
+
+  --- initialize node with index N1 in total of N2 nodes 
+  eq init-node(N1, s N2) = 
+    < node(N1) : FollowerNode | currentTerm : 0, 
+                                log : entry(0, 0, "startup"), 
+                                committed : entry(0, 0, "startup"), 
+                                neighbors : make-neighbors(N1, N2), 
+                                waiting : false, 
+                                next-neighbor : node(add-one-modulo(N1, s N2)), 
+                                majority : get-majority(s N2),
+                                number-neighbors : N2, 
+                                number-yes : 1, 
+                                number-response : 0 > .
+  op init-ring : Nat -> Configuration .
+  op init-ring : Nat Nat -> Configuration .
+  eq init-ring(N) = init-ring(0, N) .
+  eq init-ring(N, N) = none .
+  eq init-ring(N1, N2) = init-node(N1, N2) init-ring(N1 + 1, N2) [owise] .
+endm
+
+mod SIMUL is 
+  pr NODE-INIT .
+  
+  op Client : -> Cid [ctor] .
+  op client : -> Oid [ctor] .
+
+  sort command-list .
+  op empty : -> command-list [ctor] .
+  subsort Command < command-list .
+  op _;_ : command-list command-list -> command-list [ctor assoc id: empty] .
+
+  --- total amount of failures left
+  op gas :_ : Nat -> Attribute [ctor gather(&)] .
+  --- number of nodes that can still be failed 
+  op num :_ : Nat -> Attribute [ctor gather(&)] .
+  --- nodes that are alive
+  op live :_ : OidSet -> Attribute [ctor gather(&)] .
+  --- nodes that are failed 
+  op fail :_ : OidSet -> Attribute [ctor gather(&)] .
+
+  var g N N2 : Nat .
+  var O cli : Oid .
+  var OS failed : OidSet .
+  var AS : AttributeSet .
+  op init-client : Nat Nat -> Configuration .
+  eq init-client(s N, g) = 
+    (msg BecomeLeader(1) from client to node(0))
+    (msg Query("cmd1") from client to node(0)) 
+    (msg Query("cmd2") from client to node(0)) 
+    (msg Query("cmd3") from client to node(0)) 
+    < client : Client | gas : g, num : get-minority(s N), live : make-neighbors(s N, N), fail : none > .
+
+  --- tell a node to die
+  rl [cause-die] :
+    < cli : Client | gas : s N2, num : s N, live : (O, OS), AS > => 
+    < cli : Client | gas :   N2, num : N  , live : OS     , AS > 
+    (msg Die from cli to O) .
+
+  --- acknowledge node death 
+  rl [eat-die] :
+    (msg Die from O to cli)
+    < cli : Client | fail : failed     , AS > =>
+    < cli : Client | fail : (O, failed), AS > .
+
+  --- bring node back to life 
+  rl [cause-live] :
+    < cli : Client | fail : (O, failed), AS > =>
+    < cli : Client | fail : failed     , AS > 
+    (msg Live from cli to O) .
+
+  --- acknowledge node life 
+  rl [eat-live] : 
+    (msg Live from O to cli) 
+    < cli : Client | num : N  , live : OS     , AS > =>
+    < cli : Client | num : s N, live : (O, OS), AS > .
+
+  op init : Nat Nat -> Configuration .
+  eq init(N, g) = init-client(N, g) init-ring(N) .
+endm
+
+***(
+set trace on .
+set trace mb off .
+set trace eq off .
+set trace condition off .
+
+search [1] init(3, 1) =>! C:Configuration  M:Msg .
+
+search [1] init(3, 1) =>* C:Configuration 
+                      < O1:Oid : LeaderNode | AS1:AttributeSet > 
+                      < O2:Oid : LeaderNode | AS2:AttributeSet > .
+
+search [1] init(3, 1) =>* C:Configuration 
+                      < O1:Oid : C1:Cid | log : L11:Log ; entry(ind:Nat, term:Nat, C1:Command) ; L12:Log, AS1:AttributeSet > 
+                      < O2:Oid : C2:Cid | log : L21:Log ; entry(ind:Nat, term:Nat, C2:Command) ; L22:Log, AS2:AttributeSet > 
+                      such that C1:Command =/= C2:Command or L11:Log =/= L21:Log .
+
+search [1] init(3, 1) =>* C:Configuration 
+                      < O1:Oid : C1:Cid | committed : L11:Log ; entry(ind:Nat, term:Nat, C1:Command) ; L12:Log, AS1:AttributeSet > 
+                      < O2:Oid : C2:Cid | committed : L21:Log ; entry(ind:Nat, term:Nat, C2:Command) ; L22:Log, AS2:AttributeSet > 
+                      such that C1:Command =/= C2:Command or L11:Log =/= L21:Log .
+)

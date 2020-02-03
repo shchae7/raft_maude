@@ -1,0 +1,40 @@
+mod LOG is 
+  --- index, term, and command form an entry
+  --- list of entries form a Log
+  pr STRING .
+  pr NAT .
+  pr BOOL .
+
+  sorts Command Entry Log .
+  subsort String < Command .
+  subsort Entry < Log .
+  op entry : Nat Nat Command -> Entry [ctor] .
+  op empty : -> Log [ctor] .
+  op _;_ : Log Log -> Log [ctor assoc id: empty] .
+  --- indexing 
+  vars L1 L2 : Log .
+  vars ind ter : Nat .
+  var C : Command .
+
+  --- check Log contains entry 
+  var E E1 E2 : Entry .
+  op contains : Log Entry -> Bool .
+  eq contains(L1 ; E ; L2, E) = true .
+  eq contains(L1, E) = false [owise] .
+
+  --- get top of Log
+  op head : Log -> Entry .
+  eq head(L1 ; E) = E .
+
+  --- helpers
+  op index : Entry -> Nat .
+  op term : Entry -> Nat .
+  op command : Entry -> Command .
+  eq index(entry(ind, ter, C)) = ind .
+  eq term(entry(ind, ter, C)) = ter .
+  eq command(entry(ind, ter, C)) = C .
+
+  --- check if E1 <= E2, so E2 is at least as up to date as E1 
+  op compare-log : Entry Entry -> Bool .
+  eq compare-log(E1, E2) = term(E1) < term(E2) or (term(E1) == term(E2) and index(E1) <= index(E2)) . 
+endm 
