@@ -8,29 +8,29 @@ mod OFFLINE is
   var oids : OidSet .
   var O1 O2 cli lea fol : Oid .
   var fols : OidSet .
-  var led comled : Log .
+  var log comlog : Log .
   var AS : AttributeSet .
   var N1 N2 N3 term term-res : Nat .
   var B : Bool .
   var E : Entry .
 
-  --- propagate query 
-  rl [query-offline] :
-    (msg Query(C) from cli to fol)
+  --- propagate Request 
+  rl [request-offline] :
+    (msg Request(C) from cli to fol)
     < fol : OfflineNode | next-neighbor : lea, AS > =>
     < fol : OfflineNode | next-neighbor : lea, AS > 
-    (msg Query(C) from cli to lea) .
+    (msg Request(C) from cli to lea) .
 
   --- vote no on setting log
-  rl [set-log-offline] :
-    (msg SetLog(term, led) from lea to fol)
+  rl [append-entry-offline] :
+    (msg AppendEntry(term, log) from lea to fol)
     < fol : OfflineNode | AS > =>
     < fol : OfflineNode | AS > 
-    (msg SetLogResponse(term, false) from fol to lea) .
+    (msg AppendEntryResponse(term, false) from fol to lea) .
 
-  --- ignore setlogresponse
-  rl [set-log-response-offline] :
-    (msg SetLogResponse(term, B) from fol to lea)
+  --- ignore AppendEntryresponse
+  rl [append-entry-response-offline] :
+    (msg AppendEntryResponse(term, B) from fol to lea)
     < lea : OfflineNode | AS > =>
     < lea : OfflineNode | AS > .
 
@@ -67,9 +67,9 @@ mod OFFLINE is
     < fol : OfflineNode | AS > => 
     < fol : OfflineNode | AS > .
 
-  --- delete setlogresponse messages
-  rl [follower-set-log-response] :
-    (msg SetLogResponse(term, B) from lea to fol)
+  --- delete AppendEntryresponse messages
+  rl [follower-append-entry-response] :
+    (msg AppendEntryResponse(term, B) from lea to fol)
     < fol : OfflineNode | AS > =>
     < fol : OfflineNode | AS > .
 endm

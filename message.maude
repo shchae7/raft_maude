@@ -1,21 +1,19 @@
-load ./log
 
 mod MESSAGE is 
   ex CONFIGURATION .
   pr LOG .
-  pr NAT .
-  pr BOOL .
 
   sort MsgCont .
+
   --- for leader
-  op Query : Command -> MsgCont [ctor] .
+  op Request : Command -> MsgCont [ctor] .
 
   --- the nat of the next three commands is the current term
   --- send the Log to followers 
-  op SetLog : Nat Log -> MsgCont [ctor] .
+  op AppendEntry : Nat Log -> MsgCont [ctor] .
 
-  --- vote yes if log updated, no otherwise (if node is down or setlog came from dead leader)
-  op SetLogResponse : Nat Bool -> MsgCont [ctor] .
+  --- vote yes if log updated, no otherwise (if node is down or AppendEntry came from dead leader)
+  op AppendEntryResponse : Nat Bool -> MsgCont [ctor] .
 
   --- tell nodes to commit up to the designated entry (if entry doesn't exist, do nothing)
   op Commit : Nat Entry -> MsgCont [ctor] .
@@ -39,13 +37,16 @@ mod MESSAGE is
 
   op msg_from_to_ : MsgCont Oid Oid -> Msg [ctor] .
 
-  op dest : Msg -> Oid .
-  op cont : Msg -> MsgCont .
   var C : MsgCont .
   vars O O2 : Oid .
+
+  op dest : Msg -> Oid .
   eq dest(msg C from O to O2) = O2 .
+
+  op cont : Msg -> MsgCont .
   eq cont(msg C from O to O2) = C .
 endm
+
 
 mod MULTICAST is
   pr MESSAGE .
@@ -55,12 +56,14 @@ mod MULTICAST is
   subsort Oid < OidSet .
 
   op none : -> OidSet [ctor] .
-  op multicast_from_to_ : MsgCont Oid OidSet -> Msg [ctor] .
   op _,_ : OidSet OidSet -> OidSet [ctor assoc comm id: none] .
 
   var M : MsgCont .
   vars O O2 : Oid .
   var OS : OidSet .
+
+  op multicast_from_to_ : MsgCont Oid OidSet -> Msg [ctor] .
   eq multicast M from O to none = none .
   eq multicast M from O to (O2 , OS) = (msg M from O to O2) multicast M from O to OS .
 endm
+

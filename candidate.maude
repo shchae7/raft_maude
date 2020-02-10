@@ -8,7 +8,7 @@ mod CANDIDATE is
   var oids : OidSet .
   var cli lea fol : Oid .
   var fols : OidSet .
-  vars led led2 oldled comled : Log .
+  vars log log2 oldlog comlog : Log .
   var AS : AttributeSet .
   var N1 N2 N3 term new-term term-res : Nat .
   var E : Entry .
@@ -16,22 +16,22 @@ mod CANDIDATE is
   var B : Bool .
 
   --- receive yes or not vote
-  rl [candidate-receive-vote] : 
+  rl [receive-vote] : 
     (msg Vote(term, B) from fol to lea)
-    < lea : CandidateNode | currentTerm : term, number-yes : N1            , number-response : N2    , AS > => 
-    < lea : CandidateNode | currentTerm : term, number-yes : N1 + to-nat(B), number-response : N2 + 1, AS > .
+    < lea : CandidateNode | currentTerm : term, yes : N1            , number-response : N2    , AS > => 
+    < lea : CandidateNode | currentTerm : term, yes : N1 + to-nat(B), number-response : N2 + 1, AS > .
 
   --- when everyone responds, become leader and propegate log if majority voted yes
-  crl [success-leader] :
-    < lea : CandidateNode | currentTerm : term, log : led, neighbors : fols, waiting : B   , majority : N1, number-yes : N2, number-neighbors : N3, number-response : N3, AS > =>
-    < lea : LeaderNode    | currentTerm : term, log : led, neighbors : fols, waiting : true, majority : N1, number-yes : 1 , number-neighbors : N3, number-response : 0 , AS >
-    (multicast SetLog(term, led) from lea to fols)
+  crl [voted-leader] :
+    < lea : CandidateNode | currentTerm : term, log : log, neighbors : fols, waiting : B   , majority : N1, yes : N2, number-neighbors : N3, number-response : N3, AS > =>
+    < lea : LeaderNode    | currentTerm : term, log : log, neighbors : fols, waiting : true, majority : N1, yes : 1 , number-neighbors : N3, number-response : 0 , AS >
+    (multicast AppendEntry(term, log) from lea to fols)
     if N2 >= N1 .
 
-  --- when everyone responds, if failed, pass on leader request
+  --- when everyone responds, if failog, pass on leader request
   crl [fail-leader] :
-    < lea : CandidateNode | currentTerm : term, next-neighbor : fol, majority : N1, number-yes : N2, number-neighbors : N3, number-response : N3, AS > =>
-    < lea : FollowerNode  | currentTerm : term, next-neighbor : fol, majority : N1, number-yes : N2, number-neighbors : N3, number-response : N3, AS >
+    < lea : CandidateNode | currentTerm : term, next-neighbor : fol, majority : N1, yes : N2, number-neighbors : N3, number-response : N3, AS > =>
+    < lea : FollowerNode  | currentTerm : term, next-neighbor : fol, majority : N1, yes : N2, number-neighbors : N3, number-response : N3, AS >
     (msg BecomeLeader(term + 1) from lea to fol)
     if N2 < N1 .
 

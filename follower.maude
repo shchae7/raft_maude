@@ -8,41 +8,41 @@ mod FOLLOWER is
   var oids : OidSet .
   var cli lea fol : Oid .
   var fols : OidSet .
-  vars led led2 oldled comled : Log .
+  vars log log2 oldlog comlog : Log .
   var AS : AttributeSet .
   var N1 N2 N3 term new-term term-res : Nat .
   var E E1 E2 : Entry .
   var M : Msg .
   var B : Bool .
 
-  --- propagate query 
-  rl [query-follower] :
-    (msg Query(C) from cli to fol)
+  --- propagate Request 
+  rl [request-follower] :
+    (msg Request(C) from cli to fol)
     < fol : FollowerNode | next-neighbor : lea, AS > =>
     < fol : FollowerNode | next-neighbor : lea, AS > 
-    (msg Query(C) from cli to lea) .
+    (msg Request(C) from cli to lea) .
 
   --- set the log of the leader 
-  crl [set-log-follower] :
-    (msg SetLog(new-term, led) from lea to fol)
-    < fol : FollowerNode | currentTerm : term    , log : oldled, AS > =>
-    < fol : FollowerNode | currentTerm : new-term, log : led, AS > 
-    (msg SetLogResponse(new-term, true) from fol to lea) 
+  crl [append-entry-follower] :
+    (msg AppendEntry(new-term, log) from lea to fol)
+    < fol : FollowerNode | currentTerm : term    , log : oldlog, AS > =>
+    < fol : FollowerNode | currentTerm : new-term, log : log, AS > 
+    (msg AppendEntryResponse(new-term, true) from fol to lea) 
     if new-term >= term .
 
-  --- commit up to entry E if not committed (and update state machine with led ; E, if modeled)
+  --- commit up to entry E if not committed (and update state machine with log ; E, if modelog)
   crl [commit-follower] :
     (msg Commit(new-term, E) from lea to fol)
-    < fol : FollowerNode | currentTerm : term    , log : comled ; led ; E ; led2, committed : comled          , AS > => 
-    < fol : FollowerNode | currentTerm : new-term, log : comled ; led ; E ; led2, committed : comled ; led ; E, AS > 
+    < fol : FollowerNode | currentTerm : term    , log : comlog ; log ; E ; log2, committed : comlog          , AS > => 
+    < fol : FollowerNode | currentTerm : new-term, log : comlog ; log ; E ; log2, committed : comlog ; log ; E, AS > 
     if new-term >= term .
 
   --- if log doesn't have E or E is already committed, ignore
   crl [cant-commit-follower] :
     (msg Commit(new-term, E) from lea to fol)
-    < fol : FollowerNode | currentTerm : term    , log : led, committed : comled, AS > => 
-    < fol : FollowerNode | currentTerm : new-term, log : led, committed : comled, AS > 
-    if (new-term >= term) and ((not contains(led, E)) or (contains(comled, E))) .
+    < fol : FollowerNode | currentTerm : term    , log : log, committed : comlog, AS > => 
+    < fol : FollowerNode | currentTerm : new-term, log : log, committed : comlog, AS > 
+    if (new-term >= term) and ((not contains(log, E)) or (contains(comlog, E))) .
 
   --- go offline 
   rl [die] :
@@ -51,9 +51,9 @@ mod FOLLOWER is
     < fol : OfflineNode  | AS > 
     (msg Die from fol to cli) .
 
-  --- delete setlogresponse messages
-  rl [follower-set-log-response] :
-    (msg SetLogResponse(term, B) from lea to fol)
+  --- delete AppendEntryresponse messages
+  rl [follower-append-entry-response] :
+    (msg AppendEntryResponse(term, B) from lea to fol)
     < fol : FollowerNode | AS > =>
     < fol : FollowerNode | AS > .
 
@@ -66,15 +66,15 @@ mod FOLLOWER is
   --- send new term and last entry to request vote
   rl [become-leader] :
     (msg BecomeLeader(new-term) from lea to fol)
-    < fol : FollowerNode  | currentTerm : term    , log : led ; E, neighbors : fols, number-yes : N1, number-response : N2, AS > =>
-    < fol : CandidateNode | currentTerm : new-term, log : led ; E, neighbors : fols, number-yes : 1 , number-response : 0 , AS > 
+    < fol : FollowerNode  | currentTerm : term    , log : log ; E, neighbors : fols, yes : N1, number-response : N2, AS > =>
+    < fol : CandidateNode | currentTerm : new-term, log : log ; E, neighbors : fols, yes : 1 , number-response : 0 , AS > 
     (multicast RequestVote(new-term, E) from fol to fols) .
 
   --- vote yes if log not as up-to-date 
   crl [follower-vote] :
     (msg RequestVote(new-term, E2) from lea to fol)
-    < fol : FollowerNode | currentTerm : term    , log : led ; E1, AS > =>
-    < fol : FollowerNode | currentTerm : new-term, log : led ; E1, AS > 
-    (msg Vote(new-term, compare-log(E1, E2)) from fol to lea) 
+    < fol : FollowerNode | currentTerm : term    , log : log ; E1, AS > =>
+    < fol : FollowerNode | currentTerm : new-term, log : log ; E1, AS > 
+    (msg Vote(new-term, (E1 < E2)) from fol to lea) 
     if (new-term >= term) .
 endm

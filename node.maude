@@ -1,17 +1,12 @@
-load ./message
-load ./log
 
 mod NODE is
-  pr MESSAGE .
   pr MULTICAST .
-  pr STRING .
-  pr NAT .
-  pr LOG .
-  pr BOOL .
 
   sort NodeCid .
   subsort NodeCid < Cid .
+
   op node : Nat -> Oid [ctor] .
+
   op FollowerNode : -> NodeCid .
   op LeaderNode : -> NodeCid .
   op OfflineNode : -> NodeCid .
@@ -30,7 +25,7 @@ mod NODE is
   --- other nodes 
   op neighbors :_ : OidSet -> Attribute [ctor gather(&)] .
 
-  --- whether leader is waiting for nodes setlog
+  --- whether leader is waiting for nodes AppendEntry
   op waiting :_ : Bool -> Attribute [ctor gather(&)] .
 
   --- next neighbor in ring 
@@ -43,7 +38,7 @@ mod NODE is
   op number-neighbors :_ : Nat -> Attribute [ctor gather(&)] .
 
   --- number of yes response (election or commit)
-  op number-yes :_ : Nat -> Attribute [ctor gather(&)] .
+  op yes :_ : Nat -> Attribute [ctor gather(&)] .
 
   --- number of no responses
   op number-response :_ : Nat -> Attribute [ctor gather(&)] .
@@ -65,8 +60,8 @@ mod NODE is
 
   --- get the term of a message content, used for cleanup
   op get-term : MsgCont -> Nat .
-  eq get-term(SetLog(N, led)) = N .
-  eq get-term(SetLogResponse(N, B)) = N .
+  eq get-term(AppendEntry(N, led)) = N .
+  eq get-term(AppendEntryResponse(N, B)) = N .
   eq get-term(Commit(N, E)) = N .
   eq get-term(RequestVote(N, E)) = N .
   eq get-term(Vote(N, B)) = N .

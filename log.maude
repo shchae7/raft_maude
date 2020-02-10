@@ -1,23 +1,40 @@
-mod LOG is 
-  --- index, term, and command form an entry
-  --- list of entries form a Log
+fmod ENTRY is
   pr STRING .
-  pr NAT .
-  pr BOOL .
 
-  sorts Command Entry Log .
-  subsort String < Command .
-  subsort Entry < Log .
+  sort Entry .
   op entry : Nat Nat Command -> Entry [ctor] .
-  op empty : -> Log [ctor] .
-  op _;_ : Log Log -> Log [ctor assoc id: empty] .
-  --- indexing 
-  vars L1 L2 : Log .
-  vars ind ter : Nat .
+
+  sort Command .
+  subsort String < Command .
+
+  vars Ind Ter : Nat .
   var C : Command .
 
-  --- check Log contains entry 
+  --- indexing 
+  op index : Entry -> Nat .
+  eq index(entry(Ind, Ter, C)) = Ind .
+
+  op term : Entry -> Nat .
+  eq term(entry(Ind, Ter, C)) = Ter .
+
+  op command : Entry -> Command .
+  eq command(entry(Ind, Ter, C)) = C .
+endfm
+
+--- index, term, and command form an entry
+--- list of entries form a Log
+fmod LOG is 
+  pr ENTRY .
+
+  sort Log .
+  subsort Entry < Log .
+  op empty : -> Log [ctor] .
+  op _;_ : Log Log -> Log [ctor assoc id: empty] .
+
+  vars L1 L2 : Log .
   var E E1 E2 : Entry .
+
+  --- check Log contains entry 
   op contains : Log Entry -> Bool .
   eq contains(L1 ; E ; L2, E) = true .
   eq contains(L1, E) = false [owise] .
@@ -26,15 +43,7 @@ mod LOG is
   op head : Log -> Entry .
   eq head(L1 ; E) = E .
 
-  --- helpers
-  op index : Entry -> Nat .
-  op term : Entry -> Nat .
-  op command : Entry -> Command .
-  eq index(entry(ind, ter, C)) = ind .
-  eq term(entry(ind, ter, C)) = ter .
-  eq command(entry(ind, ter, C)) = C .
-
   --- check if E1 <= E2, so E2 is at least as up to date as E1 
-  op compare-log : Entry Entry -> Bool .
-  eq compare-log(E1, E2) = term(E1) < term(E2) or (term(E1) == term(E2) and index(E1) <= index(E2)) . 
-endm 
+  op _<_ : Entry Entry -> Bool .
+  eq E1 < E2 = term(E1) < term(E2) or (term(E1) == term(E2) and index(E1) <= index(E2)) . 
+endfm 

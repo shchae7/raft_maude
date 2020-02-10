@@ -1,3 +1,5 @@
+load ./log
+load ./message
 load ./follower
 load ./leader
 load ./offline
@@ -41,7 +43,7 @@ mod NODE-INIT is
                                 next-neighbor : node(add-one-modulo(N1, s N2)), 
                                 majority : get-majority(s N2),
                                 number-neighbors : N2, 
-                                number-yes : 1, 
+                                yes : 1, 
                                 number-response : 0 > .
   op init-ring : Nat -> Configuration .
   op init-ring : Nat Nat -> Configuration .
@@ -77,9 +79,9 @@ mod SIMUL is
   op init-client : Nat Nat -> Configuration .
   eq init-client(s N, g) = 
     (msg BecomeLeader(1) from client to node(0))
-    (msg Query("cmd1") from client to node(0)) 
-    (msg Query("cmd2") from client to node(0)) 
-    (msg Query("cmd3") from client to node(0)) 
+    (msg Request("cmd1") from client to node(0)) 
+    (msg Request("cmd2") from client to node(0)) 
+    (msg Request("cmd3") from client to node(0)) 
     < client : Client | gas : g, num : get-minority(s N), live : make-neighbors(s N, N), fail : none > .
 
   --- tell a node to die
@@ -109,6 +111,22 @@ mod SIMUL is
   op init : Nat Nat -> Configuration .
   eq init(N, g) = init-client(N, g) init-ring(N) .
 endm
+
+
+***(
+mod SIMUL-PROP is
+  protecting SIMUL .
+  including MODEL-CHECKER .
+
+  subsort Configuration < State .
+
+  op initital : -> Configuration .
+  eq initital = init(3, 1) .
+
+  ops disaster success : -> Prop .
+
+endm
+)
 
 ***(
 set trace on .
